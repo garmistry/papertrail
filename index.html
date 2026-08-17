@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:;" />
+    <title>Papertrail</title>
+    <link id="highlight-theme" rel="stylesheet" href="./node_modules/@highlightjs/cdn-assets/styles/github.min.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="toolbar">
+      <div class="brand" aria-label="Papertrail Markdown editor"><span class="brand-mark" aria-hidden="true"></span>Papertrail</div>
+      <div class="document-name" id="document-name">New note</div>
+      <div class="toolbar-actions">
+        <div class="view-toggle" id="view-toggle" aria-label="Editor view">
+          <button class="view-button" type="button" data-view="write">Write</button>
+          <button class="view-button" type="button" data-view="split">Split</button>
+          <button class="view-button" type="button" data-view="preview">Preview</button>
+        </div>
+        <button class="button ghost" id="new-button" type="button">New</button>
+        <button class="button ghost" id="open-button" type="button">Open</button>
+        <button class="button" id="save-button" type="button">Save</button>
+        <details class="toolbar-popover" id="markdown-helper">
+          <summary class="button ghost">Markup</summary>
+          <div class="helper-popover" aria-label="Markdown authoring helper">
+            <div class="helper-title"><strong>Markdown helper</strong><span>CommonMark-friendly building blocks</span></div>
+            <div class="helper-grid">
+              <button type="button" data-markdown-tool="heading-1"><strong>H1</strong><span># Heading</span></button>
+              <button type="button" data-markdown-tool="heading-2"><strong>H2</strong><span>## Heading</span></button>
+              <button type="button" data-markdown-tool="bullets"><strong>•</strong><span>Bulleted list</span></button>
+              <button type="button" data-markdown-tool="numbered"><strong>1.</strong><span>Numbered list</span></button>
+              <button type="button" data-markdown-tool="bold"><strong>B</strong><span>Bold</span></button>
+              <button type="button" data-markdown-tool="italic"><strong><em>I</em></strong><span>Italic</span></button>
+              <button type="button" data-markdown-tool="quote"><strong>❯</strong><span>Quote</span></button>
+              <button type="button" data-markdown-tool="link"><strong>↗</strong><span>Link</span></button>
+              <button type="button" data-markdown-tool="inline-code"><strong>&lt;/&gt;</strong><span>Inline code</span></button>
+              <button type="button" data-markdown-tool="code-block"><strong>{ }</strong><span>Code block</span></button>
+              <button type="button" data-markdown-tool="divider"><strong>—</strong><span>Divider</span></button>
+              <button type="button" data-markdown-tool="table"><strong>▦</strong><span>Table</span></button>
+            </div>
+          </div>
+        </details>
+        <button class="icon-button" id="settings-button" type="button" aria-label="Open settings" title="Settings">⚙</button>
+        <button class="icon-button" id="theme-button" type="button" aria-label="Switch color theme" title="Switch color theme">◐</button>
+      </div>
+    </header>
+
+    <main class="workspace" id="workspace" data-view="split">
+      <aside class="sidebar" aria-label="Document archive">
+        <div class="sidebar-heading">
+          <span>Archive</span>
+          <span class="archive-count" id="archive-count"></span>
+        </div>
+        <label class="search-box" for="archive-search">
+          <span aria-hidden="true">⌕</span>
+          <input id="archive-search" type="search" placeholder="Search seen files" autocomplete="off" />
+        </label>
+        <div class="history-label" id="history-label">Recent files</div>
+        <div class="history-list" id="history-list"></div>
+      </aside>
+
+      <section class="editor-pane" aria-label="Markdown editor">
+        <div class="pane-heading"><span>Markdown</span><span class="shortcut">⌘S to save</span></div>
+        <textarea id="editor" spellcheck="true" placeholder="# Start writing&#10;&#10;Papertrail keeps your recent files searchable on this Mac."></textarea>
+      </section>
+
+      <section class="preview-pane" aria-label="Rendered preview">
+        <div class="pane-heading"><span>Preview</span><span class="preview-actions"><button class="pane-action" id="preview-edit-button" type="button">Edit Markdown</button><span class="live-indicator">Live</span></span></div>
+        <article class="preview-content" id="preview" tabindex="0"></article>
+      </section>
+    </main>
+
+    <footer class="statusbar">
+      <span class="status-left"><span id="status" aria-live="polite">Ready</span><span class="global-open-count" id="global-open-count" title="Markdown files opened">0 Markdown opens</span></span>
+      <span id="document-stats">0 words</span>
+    </footer>
+    <dialog class="settings-dialog" id="settings-dialog" aria-labelledby="settings-title">
+      <form method="dialog">
+        <div class="settings-heading"><div><span class="eyebrow">Papertrail</span><h2 id="settings-title">Settings</h2></div><button class="icon-button" id="settings-close" type="submit" aria-label="Close settings">×</button></div>
+        <label class="settings-field" for="settings-theme"><span>Color theme</span><select id="settings-theme"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+        <label class="settings-field" for="settings-view"><span>Preferred layout</span><select id="settings-view"><option value="write">Write</option><option value="split">Split</option><option value="preview">Preview only</option></select></label>
+        <div class="settings-stat"><span>Markdown files opened</span><strong id="settings-open-count">0</strong><small>Counts every local .md, .markdown, and .mdx file you open.</small></div>
+      </form>
+    </dialog>
+    <script src="./node_modules/markdown-it/dist/browser/markdown-it.umd.min.js"></script>
+    <script src="./node_modules/@highlightjs/cdn-assets/highlight.min.js"></script>
+    <script src="./renderer.mjs" type="module"></script>
+  </body>
+</html>

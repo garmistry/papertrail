@@ -1,0 +1,65 @@
+{
+  "name": "papertrail-markdown",
+  "version": "1.0.0",
+  "description": "A native-feeling Markdown editor for macOS.",
+  "author": "Papertrail",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test",
+    "package": "electron-builder --mac --x64 --arm64"
+  },
+  "license": "MIT",
+  "build": {
+    "appId": "com.papertrail.markdown",
+    "productName": "Papertrail",
+    "asar": true,
+    "files": [
+      "**/*",
+      "!build{,/**}",
+      "!docs{,/**}",
+      "!test{,/**}",
+      "!README.md"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "electronLanguages": [
+        "en"
+      ],
+      "icon": "build/icon-1024.png",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "identity": null
+    },
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "fileAssociations": [
+      {
+        "ext": [
+          "md",
+          "markdown",
+          "mdx"
+        ],
+        "name": "Markdown document",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "txt",
+          "json"
+        ],
+        "name": "Text and JSON document",
+        "role": "Editor"
+      }
+    ]
+  },
+  "dependencies": {
+    "@highlightjs/cdn-assets": "^11.12.0",
+    "markdown-it": "^15.0.0"
+  },
+  "devDependencies": {
+    "electron": "^43.4.0",
+    "electron-builder": "^26.15.3"
+  }
+}

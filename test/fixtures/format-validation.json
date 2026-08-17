@@ -1,0 +1,5 @@
+{
+  "format": "json",
+  "valid": true,
+  "items": ["preview", "edit"]
+}
