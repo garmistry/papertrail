@@ -1,6 +1,6 @@
 # Papertrail
 
-Papertrail is a macOS Markdown editor with a live preview, highlighted code blocks, light/dark themes, recent files, full-text search, and support for Markdown, text, and JSON files.
+Papertrail is a macOS Markdown editor with a live preview, clickable document outline, highlighted code blocks, light/dark themes, recent files, full-text search, virtual file categories that never move documents, and support for Markdown, text, and JSON files.
 
 ## Code structure
 
@@ -12,6 +12,19 @@ See [the architecture guide](docs/architecture.md) for process boundaries, modul
 npm install
 npm start
 ```
+
+## Sequence diagrams
+
+Fence WebSequenceDiagrams source with `wsd` to render it in the preview. Expand **Edit diagram source** beneath the diagram to edit it without leaving the preview.
+
+````markdown
+```wsd
+Client->Server: Request
+Server-->Client: Response
+```
+````
+
+Rendering uses websequencediagrams.com and requires a network connection.
 
 ## Make an installable macOS build
 

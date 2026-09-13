@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('papertrail', {
     list: () => ipcRenderer.invoke('history:list'),
     stats: () => ipcRenderer.invoke('history:stats'),
     search: (query) => ipcRenderer.invoke('history:search', query),
+    setTags: (filePath, tags) => ipcRenderer.invoke('history:set-tags', filePath, tags),
     open: (filePath) => ipcRenderer.invoke('history:open', filePath)
   },
   setTheme: (theme) => ipcRenderer.invoke('theme:set', theme),

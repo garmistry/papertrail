@@ -228,6 +228,7 @@ ipcMain.on('document:dirty', (event, dirty) => {
 handle('history:list', () => documents.listHistory());
 handle('history:stats', () => documents.historyStats());
 handle('history:search', (_event, query) => documents.searchHistory(query));
+handle('history:set-tags', (_event, filePath, tags) => documents.setTags(filePath, tags));
 handle('history:open', async (_event, filePath) => {
   if (!documents.hasHistoryPath(filePath)) throw new Error('That file is not in the local archive.');
   if (!await confirmDiscardChanges('opening another file')) return null;

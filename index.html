@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: https://www.websequencediagrams.com;" />
     <title>Papertrail</title>
     <link id="highlight-theme" rel="stylesheet" href="./node_modules/@highlightjs/cdn-assets/styles/github.min.css" />
     <link rel="stylesheet" href="./styles.css" />
@@ -47,16 +47,21 @@
     </header>
 
     <main class="workspace" id="workspace" data-view="split">
-      <aside class="sidebar" aria-label="Document archive">
+      <aside class="sidebar" aria-label="Document navigation and archive">
+        <nav class="document-outline" id="document-outline" aria-label="Document outline">
+          <div class="sidebar-heading"><span>Outline</span></div>
+          <div class="outline-list" id="outline-list"></div>
+        </nav>
         <div class="sidebar-heading">
           <span>Archive</span>
           <span class="archive-count" id="archive-count"></span>
         </div>
         <label class="search-box" for="archive-search">
           <span aria-hidden="true">⌕</span>
-          <input id="archive-search" type="search" placeholder="Search seen files" autocomplete="off" />
+          <input id="archive-search" type="search" placeholder="Search seen files" autocomplete="off" aria-label="Search archive" />
         </label>
-        <div class="history-label" id="history-label">Recent files</div>
+        <label class="category-filter" for="category-filter"><span>Filter archive</span><select id="category-filter" aria-controls="history-list"><option value="all">All seen files</option></select></label>
+        <div class="history-label" id="history-label" aria-live="polite">Recent files</div>
         <div class="history-list" id="history-list"></div>
       </aside>
 
@@ -80,6 +85,7 @@
         <div class="settings-heading"><div><span class="eyebrow">Papertrail</span><h2 id="settings-title">Settings</h2></div><button class="icon-button" id="settings-close" type="submit" aria-label="Close settings">×</button></div>
         <label class="settings-field" for="settings-theme"><span>Color theme</span><select id="settings-theme"><option value="light">Light</option><option value="dark">Dark</option></select></label>
         <label class="settings-field" for="settings-view"><span>Preferred layout</span><select id="settings-view"><option value="write">Write</option><option value="split">Split</option><option value="preview">Preview only</option></select></label>
+        <div class="settings-field"><label for="settings-categories">Categories for this file</label><div class="settings-category-editor"><input id="settings-categories" type="text" maxlength="395" placeholder="Work, research" aria-describedby="settings-categories-help" /><button class="button ghost" id="settings-save-categories" type="button">Save</button></div><small id="settings-categories-help">Virtual labels stay in Papertrail; your file stays where it is.</small></div>
         <div class="settings-stat"><span>Markdown files opened</span><strong id="settings-open-count">0</strong><small>Counts every local .md, .markdown, and .mdx file you open.</small></div>
       </form>
     </dialog>

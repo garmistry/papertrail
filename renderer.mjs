@@ -1,7 +1,7 @@
 /** Renderer controller: UI state, Electron bridge calls, and DOM event wiring. */
 
 import { applyMarkdownTool as insertMarkdownTool } from './renderer/markdown-tools.mjs';
-import { renderPreview as renderDocumentPreview } from './renderer/preview.mjs';
+import { renderPreview as renderDocumentPreview, replaceWebSequenceDiagram } from './renderer/preview.mjs';
 
 const VIEW_MODES = new Set(['write', 'split', 'preview']);
 const storedView = localStorage.getItem('papertrail-view');
@@ -15,6 +15,9 @@ const stats = document.querySelector('#document-stats');
 const themeButton = document.querySelector('#theme-button');
 const highlightTheme = document.querySelector('#highlight-theme');
 const searchInput = document.querySelector('#archive-search');
+const categoryFilter = document.querySelector('#category-filter');
+const documentOutline = document.querySelector('#document-outline');
+const outlineList = document.querySelector('#outline-list');
 const historyList = document.querySelector('#history-list');
 const historyLabel = document.querySelector('#history-label');
 const archiveCount = document.querySelector('#archive-count');
@@ -27,12 +30,18 @@ const settingsButton = document.querySelector('#settings-button');
 const settingsTheme = document.querySelector('#settings-theme');
 const settingsView = document.querySelector('#settings-view');
 const settingsOpenCount = document.querySelector('#settings-open-count');
+const settingsCategories = document.querySelector('#settings-categories');
+const settingsSaveCategories = document.querySelector('#settings-save-categories');
+const settingsCategoriesHint = document.querySelector('#settings-categories-help');
+
+const TYPE_LABELS = { markdown: 'Markdown', text: 'Text', json: 'JSON' };
 
 const state = {
   path: null,
   type: 'markdown',
   dirty: false,
   history: [],
+  category: 'all',
   markdownOpenCount: 0,
   searchVersion: 0,
   renderQueued: false,
@@ -103,9 +112,39 @@ function setView(view) {
   });
 }
 
-/** Renders the current source using the document-type-specific preview module. */
+/** Rebuilds the heading outline and wires each item to its source and preview location. */
+function renderOutline(entries) {
+  documentOutline.hidden = state.type !== 'markdown';
+  outlineList.replaceChildren();
+  if (!entries.length) {
+    const empty = document.createElement('p');
+    empty.className = 'outline-empty';
+    empty.textContent = 'Add Markdown headings to navigate this document.';
+    outlineList.append(empty);
+    return;
+  }
+  const previewHeadings = preview.querySelectorAll('h1, h2, h3, h4, h5, h6');
+  entries.forEach((entry) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'outline-item';
+    item.dataset.level = entry.level;
+    item.textContent = entry.text;
+    item.title = entry.text;
+    item.addEventListener('click', () => {
+      if (state.view !== 'write') previewHeadings[entry.previewIndex]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (state.view !== 'preview') {
+        editor.focus();
+        editor.setSelectionRange(entry.offset, entry.offset);
+      }
+    });
+    outlineList.append(item);
+  });
+}
+
+/** Renders the current source and its Markdown heading outline. */
 function renderCurrentPreview() {
-  renderDocumentPreview(preview, state.type, editor.value);
+  renderOutline(renderDocumentPreview(preview, state.type, editor.value));
 }
 
 /** Coalesces rapid editor input into one preview render per animation frame. */
@@ -123,6 +162,73 @@ function formatDate(value) {
   return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(value));
 }
 
+/** Gives virtual category labels a case-insensitive comparison key. */
+function categoryKey(value) {
+  return String(value || '').trim().toLocaleLowerCase();
+}
+
+/** Identifies whether an archive entry belongs to the active virtual category. */
+function matchesCategory(entry) {
+  if (state.category === 'all') return true;
+  if (state.category === 'untagged') return !entry.tags.length;
+  if (state.category.startsWith('type:')) return entry.type === state.category.slice(5);
+  if (state.category.startsWith('tag:')) return entry.tags.some((tag) => categoryKey(tag) === state.category.slice(4));
+  return true;
+}
+
+/** Filters archive or search results using the sidebar's selected category. */
+function filteredEntries(entries) {
+  return entries.filter(matchesCategory);
+}
+
+/** Rebuilds the compact category picker from automatic file types and saved labels. */
+function renderCategoryFilter() {
+  const categories = new Map();
+  state.history.forEach((entry) => entry.tags.forEach((tag) => {
+    const key = categoryKey(tag);
+    if (!categories.has(key)) categories.set(key, tag);
+  }));
+  const option = (value, label, count) => {
+    const element = document.createElement('option');
+    element.value = value;
+    element.textContent = `${label} (${count})`;
+    return element;
+  };
+  const options = [option('all', 'All seen files', state.history.length)];
+  const untagged = state.history.filter((entry) => !entry.tags.length).length;
+  options.push(option('untagged', 'Uncategorized', untagged));
+  const types = Object.keys(TYPE_LABELS).filter((type) => state.history.some((entry) => entry.type === type));
+  if (types.length) {
+    const group = document.createElement('optgroup');
+    group.label = 'File type';
+    types.forEach((type) => group.append(option(`type:${type}`, TYPE_LABELS[type], state.history.filter((entry) => entry.type === type).length)));
+    options.push(group);
+  }
+  if (categories.size) {
+    const group = document.createElement('optgroup');
+    group.label = 'Your categories';
+    [...categories.entries()].sort(([, first], [, second]) => first.localeCompare(second)).forEach(([key, label]) => {
+      group.append(option(`tag:${key}`, label, state.history.filter((entry) => entry.tags.some((tag) => categoryKey(tag) === key)).length));
+    });
+    options.push(group);
+  }
+  categoryFilter.replaceChildren(...options);
+  if (![...categoryFilter.options].some((item) => item.value === state.category)) state.category = 'all';
+  categoryFilter.value = state.category;
+}
+
+/** Updates the settings field for the current archived file's virtual categories. */
+function syncCategoryEditor() {
+  const entry = state.history.find((item) => item.path === state.path);
+  const enabled = Boolean(entry);
+  settingsCategories.disabled = !enabled;
+  settingsSaveCategories.disabled = !enabled;
+  settingsCategories.value = entry ? entry.tags.join(', ') : '';
+  settingsCategoriesHint.textContent = enabled
+    ? 'Virtual labels stay in Papertrail; your file stays where it is.'
+    : 'Open or save a file before assigning virtual categories.';
+}
+
 /** Builds one clickable archive row and routes its open request through the bridge. */
 function historyItem(entry) {
   const item = document.createElement('button');
@@ -137,7 +243,13 @@ function historyItem(entry) {
   detail.textContent = entry.snippet || entry.path;
   const date = document.createElement('time');
   date.textContent = formatDate(entry.updatedAt);
-  item.append(title, detail, date);
+  item.append(title, detail);
+  if (entry.tags.length) {
+    const categories = document.createElement('small');
+    categories.textContent = entry.tags.join(' · ');
+    item.append(categories);
+  }
+  item.append(date);
   item.addEventListener('click', async () => {
     try {
       const document = await window.papertrail.history.open(entry.path);
@@ -158,7 +270,7 @@ function showHistory(entries, label) {
   if (!entries.length) {
     const empty = document.createElement('p');
     empty.className = 'history-empty';
-    empty.textContent = label === 'Search results' ? 'No matches in previously seen files.' : 'Open a document to build your local archive.';
+    empty.textContent = label === 'Search results' ? 'No matches in this category.' : state.category === 'all' ? 'Open a document to build your local archive.' : 'No files in this category yet.';
     historyList.append(empty);
     return;
   }
@@ -174,7 +286,10 @@ async function refreshHistory() {
   state.history = entries;
   updateCounter(summary?.markdownOpenCount);
   archiveCount.textContent = state.history.length ? String(state.history.length) : '';
-  if (!searchInput.value.trim()) showHistory(state.history, 'Recent files');
+  renderCategoryFilter();
+  syncCategoryEditor();
+  if (searchInput.value.trim()) return searchHistory();
+  showHistory(filteredEntries(state.history), 'Recent files');
 }
 
 /** Displays the latest search result while ignoring stale overlapping searches. */
@@ -182,11 +297,11 @@ async function searchHistory() {
   const query = searchInput.value.trim();
   const version = ++state.searchVersion;
   if (!query) {
-    showHistory(state.history, 'Recent files');
+    showHistory(filteredEntries(state.history), 'Recent files');
     return;
   }
   const results = await window.papertrail.history.search(query);
-  if (version === state.searchVersion) showHistory(results, 'Search results');
+  if (version === state.searchVersion) showHistory(filteredEntries(results), 'Search results');
 }
 
 /** Applies every file-open result through one path so preview, chrome, and archive stay aligned. */
@@ -197,6 +312,7 @@ function acceptDocument(document) {
   setDirty(false);
   updateChrome();
   renderCurrentPreview();
+  syncCategoryEditor();
   refreshHistory().catch((error) => setStatus(error.message || 'Could not refresh archive.', 'error'));
 }
 
@@ -271,7 +387,22 @@ function openSettings() {
   settingsTheme.value = state.theme;
   settingsView.value = state.view;
   updateCounter();
+  syncCategoryEditor();
   if (!settingsDialog.open) settingsDialog.showModal();
+}
+
+/** Saves comma-separated virtual categories for the active archive entry. */
+async function saveCategories() {
+  const filePath = state.path;
+  if (!filePath) return;
+  try {
+    const entry = await window.papertrail.history.setTags(filePath, settingsCategories.value.split(','));
+    if (state.path === filePath) settingsCategories.value = entry.tags.join(', ');
+    await refreshHistory();
+    setStatus('Categories saved; file stays where it is.');
+  } catch (error) {
+    setStatus(error.message || 'Could not save categories.', 'error');
+  }
 }
 
 document.querySelector('#new-button').addEventListener('click', newDocument);
@@ -281,6 +412,13 @@ themeButton.addEventListener('click', () => setTheme(state.theme === 'dark' ? 'l
 settingsButton.addEventListener('click', openSettings);
 settingsTheme.addEventListener('change', () => setTheme(settingsTheme.value));
 settingsView.addEventListener('change', () => setView(settingsView.value));
+settingsSaveCategories.addEventListener('click', () => saveCategories());
+settingsCategories.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    saveCategories();
+  }
+});
 previewEditButton.addEventListener('click', editFromPreview);
 viewButtons.forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
 document.querySelectorAll('[data-markdown-tool]').forEach((button) => {
@@ -289,7 +427,25 @@ document.querySelectorAll('[data-markdown-tool]').forEach((button) => {
 searchInput.addEventListener('input', () => {
   searchHistory().catch((error) => setStatus(error.message || 'Could not search archive.', 'error'));
 });
+categoryFilter.addEventListener('change', () => {
+  state.category = categoryFilter.value;
+  searchHistory().catch((error) => setStatus(error.message || 'Could not search archive.', 'error'));
+});
 editor.addEventListener('input', changeEditor);
+preview.addEventListener('submit', (event) => {
+  const form = event.target.closest('.wsd-editor');
+  if (!form) return;
+  event.preventDefault();
+  const diagram = form.closest('.wsd-diagram');
+  const source = replaceWebSequenceDiagram(editor.value, Number(diagram.dataset.wsdIndex), form.elements.source.value);
+  if (source === null) return setStatus('Could not locate that diagram in the Markdown source.', 'error');
+  editor.value = source;
+  changeEditor();
+  setStatus('Sequence diagram updated.');
+});
+preview.addEventListener('error', (event) => {
+  if (event.target.matches('.wsd-diagram img')) event.target.closest('.wsd-diagram').classList.add('render-error');
+}, true);
 preview.addEventListener('click', (event) => {
   const link = event.target.closest('a');
   if (!link) return;

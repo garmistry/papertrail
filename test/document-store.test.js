@@ -23,8 +23,14 @@ test('document store tracks current files and counts only Markdown opens', () =>
   assert.equal(store.save(jsonPath, '{"ready": true}').type, 'json');
   assert.equal(store.open(jsonPath).type, 'json');
   assert.equal(store.historyStats().markdownOpenCount, 1);
+  assert.deepEqual(store.setTags(markdownPath, ['Work', 'Draft']).tags, ['Work', 'Draft']);
+  assert.equal(fs.readFileSync(markdownPath, 'utf8'), '# Note');
+  assert.equal(store.open(markdownPath).type, 'markdown');
+  assert.deepEqual(store.listHistory().find((entry) => entry.path === markdownPath).tags, ['Work', 'Draft']);
+  assert.equal(store.historyStats().markdownOpenCount, 2);
+  assert.throws(() => store.setTags(path.join(directory, 'missing.md'), ['Other']), /local archive/);
   assert.equal(store.listHistory().length, 3);
-  assert.equal(recentPaths.length, 6);
+  assert.equal(recentPaths.length, 7);
 
   store.newDocument();
   assert.equal(store.currentPath, null);

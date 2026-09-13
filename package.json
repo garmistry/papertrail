@@ -31,7 +31,8 @@
         "dmg",
         "zip"
       ],
-      "identity": null
+      "identity": "-",
+      "hardenedRuntime": false
     },
     "artifactName": "${productName}-${version}-${arch}.${ext}",
     "fileAssociations": [
