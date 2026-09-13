@@ -2,6 +2,7 @@
 
 // Main-process coordinator: native windows, trusted IPC, and app lifecycle.
 const { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const { DocumentStore } = require('./lib/document-store');
@@ -13,8 +14,49 @@ let rendererReady = false;
 let pendingOpenPath = null;
 let isDirty = false;
 let nextConfirmationId = 0;
+let updaterStarted = false;
+let updateDownloadStarted = false;
+let updateStatus = { state: 'idle' };
 const replacementConfirmations = new Map();
 const appPageUrl = pathToFileURL(path.join(__dirname, 'index.html')).toString();
+const UPDATE_CHECK_INTERVAL = 4 * 60 * 60 * 1000;
+
+/** Stores updater state and forwards it to the in-app notification when available. */
+function sendUpdateStatus(status) {
+  updateStatus = status;
+  if (mainWindow && rendererReady && !mainWindow.isDestroyed()) mainWindow.webContents.send('update:status', status);
+}
+
+/** Checks the configured GitHub release feed without interrupting offline use. */
+function checkForUpdates() {
+  if (!app.isPackaged || ['downloading', 'downloaded'].includes(updateStatus.state)) return;
+  autoUpdater.checkForUpdates().catch((error) => console.error('Update check failed:', error.message));
+}
+
+/** Connects the packaged app to its GitHub release feed once per process. */
+function startUpdater() {
+  if (!app.isPackaged || updaterStarted) return;
+  updaterStarted = true;
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
+  autoUpdater.allowPrerelease = false;
+  autoUpdater.on('update-available', ({ version }) => sendUpdateStatus({ state: 'available', version }));
+  autoUpdater.on('update-not-available', () => sendUpdateStatus({ state: 'idle' }));
+  autoUpdater.on('download-progress', ({ percent }) => sendUpdateStatus({ state: 'downloading', percent: Math.round(percent) }));
+  autoUpdater.on('update-downloaded', ({ version }) => {
+    updateDownloadStarted = false;
+    sendUpdateStatus({ state: 'downloaded', version });
+  });
+  autoUpdater.on('error', (error) => {
+    console.error('Updater failed:', error.message);
+    if (updateDownloadStarted) {
+      updateDownloadStarted = false;
+      sendUpdateStatus({ state: 'error', message: error.message });
+    }
+  });
+  setTimeout(checkForUpdates, 1500);
+  setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL).unref();
+}
 
 /** Shows a native discard prompt when the renderer is not ready to answer it. */
 function confirmDiscardChangesNative(action) {
@@ -178,7 +220,7 @@ function createWindow() {
     minWidth: 960,
     minHeight: 640,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
-    backgroundColor: '#17181c',
+    backgroundColor: '#f5f6f8',
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -203,6 +245,8 @@ function createWindow() {
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.webContents.on('did-finish-load', () => {
     rendererReady = true;
+    startUpdater();
+    if (updateStatus.state !== 'idle') sendUpdateStatus(updateStatus);
     if (pendingOpenPath) {
       const filePath = pendingOpenPath;
       pendingOpenPath = null;
@@ -243,6 +287,25 @@ handle('document:confirm-replace', (_event, response) => {
 });
 handle('theme:set', (_event, theme) => {
   nativeTheme.themeSource = theme === 'dark' || theme === 'light' ? theme : 'system';
+});
+handle('update:download', async () => {
+  if (!app.isPackaged || !['available', 'error'].includes(updateStatus.state)) return false;
+  updateDownloadStarted = true;
+  sendUpdateStatus({ state: 'downloading', percent: 0 });
+  try {
+    await autoUpdater.downloadUpdate();
+    return true;
+  } catch (error) {
+    updateDownloadStarted = false;
+    sendUpdateStatus({ state: 'error', message: error.message });
+    return false;
+  }
+});
+handle('update:install', async () => {
+  if (updateStatus.state !== 'downloaded' || !await confirmDiscardChanges('installing the update')) return false;
+  isDirty = false;
+  setImmediate(() => autoUpdater.quitAndInstall(false, true));
+  return true;
 });
 handle('link:open', async (_event, href) => {
   try {

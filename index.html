@@ -46,6 +46,14 @@
       </div>
     </header>
 
+    <section class="update-notice" id="update-notice" aria-live="polite" aria-labelledby="update-title" hidden>
+      <button class="update-dismiss" id="update-dismiss" type="button" aria-label="Dismiss update notification">×</button>
+      <strong id="update-title"></strong>
+      <span id="update-message"></span>
+      <progress id="update-progress" max="100" hidden></progress>
+      <button class="button" id="update-action" type="button"></button>
+    </section>
+
     <main class="workspace" id="workspace" data-view="split">
       <aside class="sidebar" aria-label="Document navigation and archive">
         <nav class="document-outline" id="document-outline" aria-label="Document outline">

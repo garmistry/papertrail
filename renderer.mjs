@@ -2,6 +2,7 @@
 
 import { applyMarkdownTool as insertMarkdownTool } from './renderer/markdown-tools.mjs';
 import { renderPreview as renderDocumentPreview, replaceWebSequenceDiagram } from './renderer/preview.mjs';
+import { updateNoticeView } from './renderer/update-notice.mjs';
 
 const VIEW_MODES = new Set(['write', 'split', 'preview']);
 const storedView = localStorage.getItem('papertrail-view');
@@ -33,6 +34,12 @@ const settingsOpenCount = document.querySelector('#settings-open-count');
 const settingsCategories = document.querySelector('#settings-categories');
 const settingsSaveCategories = document.querySelector('#settings-save-categories');
 const settingsCategoriesHint = document.querySelector('#settings-categories-help');
+const updateNotice = document.querySelector('#update-notice');
+const updateTitle = document.querySelector('#update-title');
+const updateMessage = document.querySelector('#update-message');
+const updateProgress = document.querySelector('#update-progress');
+const updateAction = document.querySelector('#update-action');
+const updateDismiss = document.querySelector('#update-dismiss');
 
 const TYPE_LABELS = { markdown: 'Markdown', text: 'Text', json: 'JSON' };
 
@@ -45,9 +52,25 @@ const state = {
   markdownOpenCount: 0,
   searchVersion: 0,
   renderQueued: false,
-  theme: localStorage.getItem('papertrail-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
+  update: { state: 'idle' },
+  theme: localStorage.getItem('papertrail-theme') || 'light',
   view: VIEW_MODES.has(storedView) ? storedView : 'split'
 };
+
+/** Displays actionable update states without interrupting document work. */
+function showUpdateStatus(status) {
+  state.update = status;
+  const view = updateNoticeView(status);
+  updateNotice.hidden = !view;
+  if (!view) return;
+  updateTitle.textContent = view.title;
+  updateMessage.textContent = view.message;
+  updateProgress.hidden = view.progress === null;
+  updateProgress.value = view.progress || 0;
+  updateAction.hidden = !view.action;
+  updateAction.disabled = false;
+  updateAction.textContent = view.action || '';
+}
 
 /** Shows a brief status message in the app footer. */
 function setStatus(message, kind = '') {
@@ -419,6 +442,16 @@ settingsCategories.addEventListener('keydown', (event) => {
     saveCategories();
   }
 });
+updateAction.addEventListener('click', async () => {
+  updateAction.disabled = true;
+  try {
+    if (state.update.state === 'downloaded') await window.papertrail.updates.install();
+    else await window.papertrail.updates.download();
+  } finally {
+    if (!updateAction.hidden) updateAction.disabled = false;
+  }
+});
+updateDismiss.addEventListener('click', () => { updateNotice.hidden = true; });
 previewEditButton.addEventListener('click', editFromPreview);
 viewButtons.forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
 document.querySelectorAll('[data-markdown-tool]').forEach((button) => {
@@ -470,6 +503,7 @@ window.papertrail.onConfirmReplace(({ id, action }) => {
   const allowed = !state.dirty || window.confirm(`Discard unsaved changes before ${action}?`);
   window.papertrail.documents.confirmReplace(id, allowed);
 });
+window.papertrail.updates.onStatus(showUpdateStatus);
 
 setTheme(state.theme);
 setView(state.view);

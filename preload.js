@@ -26,6 +26,11 @@ contextBridge.exposeInMainWorld('papertrail', {
     setTags: (filePath, tags) => ipcRenderer.invoke('history:set-tags', filePath, tags),
     open: (filePath) => ipcRenderer.invoke('history:open', filePath)
   },
+  updates: {
+    download: () => ipcRenderer.invoke('update:download'),
+    install: () => ipcRenderer.invoke('update:install'),
+    onStatus: (callback) => on('update:status', callback)
+  },
   setTheme: (theme) => ipcRenderer.invoke('theme:set', theme),
   openExternal: (href) => ipcRenderer.invoke('link:open', href),
   onCommand: (callback) => on('app:command', callback),
