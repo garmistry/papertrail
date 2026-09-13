@@ -37,6 +37,11 @@ export function webSequenceDiagramImageUrl(source) {
   return `https://www.websequencediagrams.com/cgi-bin/cdraw?s=modern-blue&m=${encodeURIComponent(source)}`;
 }
 
+/** Moves diagram zoom in quarter-size steps while keeping the viewer usable. */
+export function stepDiagramZoom(zoom, direction) {
+  return Math.min(4, Math.max(0.25, zoom + Math.sign(direction) * 0.25));
+}
+
 /** Renders `wsd` fences as diagrams with a source editor in the preview. */
 markdown.renderer.rules.fence = (tokens, index, options, environment, renderer) => {
   const token = tokens[index];
@@ -46,7 +51,7 @@ markdown.renderer.rules.fence = (tokens, index, options, environment, renderer) 
   const diagramIndex = environment.webSequenceDiagramIndex++;
   const rows = Math.min(14, Math.max(4, source.split('\n').length + 1));
   return `<figure class="wsd-diagram" data-wsd-index="${diagramIndex}">
-    <div class="wsd-canvas"><img src="${escapeHtml(webSequenceDiagramImageUrl(source))}" alt="WebSequenceDiagram" referrerpolicy="no-referrer" /></div>
+    <div class="wsd-canvas"><button class="wsd-expand" type="button" aria-label="Expand sequence diagram">Expand</button><img src="${escapeHtml(webSequenceDiagramImageUrl(source))}" alt="WebSequenceDiagram" referrerpolicy="no-referrer" /></div>
     <p class="wsd-render-error" role="status">Could not render this diagram. Check your connection and source.</p>
     <figcaption><details><summary>Edit diagram source</summary><form class="wsd-editor"><textarea name="source" rows="${rows}" aria-label="WebSequenceDiagrams source" autocomplete="off" autocapitalize="off" spellcheck="false">${escapeHtml(source)}</textarea><button class="button" type="submit">Render changes</button></form></details></figcaption>
   </figure>`;

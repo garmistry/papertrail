@@ -10,7 +10,7 @@ globalThis.window = {
   }
 };
 
-const { renderPreview, replaceWebSequenceDiagram } = await import('../renderer/preview.mjs');
+const { renderPreview, replaceWebSequenceDiagram, stepDiagramZoom } = await import('../renderer/preview.mjs');
 
 test('wsd fences render and inline edits replace only the selected diagram source', () => {
   const source = [
@@ -29,12 +29,19 @@ test('wsd fences render and inline edits replace only the selected diagram sourc
 
   renderPreview(preview, 'markdown', source);
   assert.match(preview.innerHTML, /class="wsd-diagram"/);
+  assert.match(preview.innerHTML, /class="wsd-expand"/);
   assert.match(preview.innerHTML, /cgi-bin\/cdraw\?s=modern-blue&amp;m=Client-%3EServer%3A%20First/);
 
   const updated = replaceWebSequenceDiagram(source, 1, 'Server-->Client: Updated');
   assert.match(updated, /Client->Server: First/);
   assert.match(updated, /~~~wsd\nServer-->Client: Updated\n~~~/);
   assert.equal(replaceWebSequenceDiagram(source, 2, 'missing'), null);
+});
+
+test('diagram zoom uses quarter steps within its supported range', () => {
+  assert.equal(stepDiagramZoom(1, 1), 1.25);
+  assert.equal(stepDiagramZoom(0.25, -1), 0.25);
+  assert.equal(stepDiagramZoom(4, 1), 4);
 });
 
 test('Markdown headings generate a level-aware outline from the preview parse', () => {

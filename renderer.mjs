@@ -1,7 +1,7 @@
 /** Renderer controller: UI state, Electron bridge calls, and DOM event wiring. */
 
 import { applyMarkdownTool as insertMarkdownTool } from './renderer/markdown-tools.mjs';
-import { renderPreview as renderDocumentPreview, replaceWebSequenceDiagram } from './renderer/preview.mjs';
+import { renderPreview as renderDocumentPreview, replaceWebSequenceDiagram, stepDiagramZoom } from './renderer/preview.mjs';
 import { updateNoticeView } from './renderer/update-notice.mjs';
 
 const VIEW_MODES = new Set(['write', 'split', 'preview']);
@@ -40,6 +40,13 @@ const updateMessage = document.querySelector('#update-message');
 const updateProgress = document.querySelector('#update-progress');
 const updateAction = document.querySelector('#update-action');
 const updateDismiss = document.querySelector('#update-dismiss');
+const diagramDialog = document.querySelector('#diagram-dialog');
+const diagramStage = document.querySelector('#diagram-stage');
+const diagramImage = document.querySelector('#diagram-image');
+const diagramZoomOut = document.querySelector('#diagram-zoom-out');
+const diagramZoomReset = document.querySelector('#diagram-zoom-reset');
+const diagramZoomIn = document.querySelector('#diagram-zoom-in');
+const diagramClose = document.querySelector('#diagram-close');
 
 const TYPE_LABELS = { markdown: 'Markdown', text: 'Text', json: 'JSON' };
 
@@ -52,10 +59,28 @@ const state = {
   markdownOpenCount: 0,
   searchVersion: 0,
   renderQueued: false,
+  diagramZoom: 1,
   update: { state: 'idle' },
   theme: localStorage.getItem('papertrail-theme') || 'light',
   view: VIEW_MODES.has(storedView) ? storedView : 'split'
 };
+
+/** Shows the expanded image at its natural resolution and updates zoom controls. */
+function setDiagramZoom(zoom) {
+  state.diagramZoom = zoom;
+  diagramImage.style.width = diagramImage.naturalWidth ? `${Math.round(diagramImage.naturalWidth * zoom)}px` : '';
+  diagramZoomReset.textContent = `${Math.round(zoom * 100)}%`;
+  diagramZoomOut.disabled = zoom <= 0.25;
+  diagramZoomIn.disabled = zoom >= 4;
+}
+
+/** Opens a rendered diagram in the large, scrollable viewer. */
+function openDiagramViewer(image) {
+  diagramImage.src = image.currentSrc || image.src;
+  setDiagramZoom(1);
+  diagramStage.scrollTo(0, 0);
+  if (!diagramDialog.open) diagramDialog.showModal();
+}
 
 /** Displays actionable update states without interrupting document work. */
 function showUpdateStatus(status) {
@@ -452,6 +477,11 @@ updateAction.addEventListener('click', async () => {
   }
 });
 updateDismiss.addEventListener('click', () => { updateNotice.hidden = true; });
+diagramImage.addEventListener('load', () => setDiagramZoom(state.diagramZoom));
+diagramZoomOut.addEventListener('click', () => setDiagramZoom(stepDiagramZoom(state.diagramZoom, -1)));
+diagramZoomReset.addEventListener('click', () => setDiagramZoom(1));
+diagramZoomIn.addEventListener('click', () => setDiagramZoom(stepDiagramZoom(state.diagramZoom, 1)));
+diagramClose.addEventListener('click', () => diagramDialog.close());
 previewEditButton.addEventListener('click', editFromPreview);
 viewButtons.forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
 document.querySelectorAll('[data-markdown-tool]').forEach((button) => {
@@ -480,6 +510,11 @@ preview.addEventListener('error', (event) => {
   if (event.target.matches('.wsd-diagram img')) event.target.closest('.wsd-diagram').classList.add('render-error');
 }, true);
 preview.addEventListener('click', (event) => {
+  const expand = event.target.closest('.wsd-expand, .wsd-canvas img');
+  if (expand) {
+    openDiagramViewer(expand.closest('.wsd-canvas').querySelector('img'));
+    return;
+  }
   const link = event.target.closest('a');
   if (!link) return;
   event.preventDefault();

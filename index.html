@@ -88,6 +88,20 @@
       <span class="status-left"><span id="status" aria-live="polite">Ready</span><span class="global-open-count" id="global-open-count" title="Markdown files opened">0 Markdown opens</span></span>
       <span id="document-stats">0 words</span>
     </footer>
+    <dialog class="diagram-dialog" id="diagram-dialog" aria-labelledby="diagram-dialog-title">
+      <div class="diagram-viewer">
+        <div class="diagram-toolbar">
+          <strong id="diagram-dialog-title">Sequence diagram</strong>
+          <div class="diagram-controls" aria-label="Diagram zoom controls">
+            <button class="button ghost diagram-control" id="diagram-zoom-out" type="button" aria-label="Zoom out">−</button>
+            <button class="button ghost diagram-zoom" id="diagram-zoom-reset" type="button" aria-label="Reset zoom">100%</button>
+            <button class="button ghost diagram-control" id="diagram-zoom-in" type="button" aria-label="Zoom in">+</button>
+            <button class="button ghost" id="diagram-close" type="button">Close</button>
+          </div>
+        </div>
+        <div class="diagram-stage" id="diagram-stage"><img id="diagram-image" alt="Expanded sequence diagram" /></div>
+      </div>
+    </dialog>
     <dialog class="settings-dialog" id="settings-dialog" aria-labelledby="settings-title">
       <form method="dialog">
         <div class="settings-heading"><div><span class="eyebrow">Papertrail</span><h2 id="settings-title">Settings</h2></div><button class="icon-button" id="settings-close" type="submit" aria-label="Close settings">×</button></div>

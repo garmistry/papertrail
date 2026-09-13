@@ -15,7 +15,7 @@ npm start
 
 ## Sequence diagrams
 
-Fence WebSequenceDiagrams source with `wsd` to render it in the preview. Expand **Edit diagram source** beneath the diagram to edit it without leaving the preview.
+Fence WebSequenceDiagrams source with `wsd` to render it in the preview. Use **Expand** to open the full-resolution diagram with zoom controls, or expand **Edit diagram source** beneath it to edit without leaving the preview.
 
 ````markdown
 ```wsd
