@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('papertrail', {
     new: () => ipcRenderer.invoke('document:new'),
     save: (text) => ipcRenderer.invoke('document:save', text),
     saveAs: (text) => ipcRenderer.invoke('document:save-as', text),
+    copyPath: () => ipcRenderer.invoke('document:copy-path'),
     setDirty: (dirty) => ipcRenderer.send('document:dirty', dirty),
     confirmReplace: (id, allowed) => ipcRenderer.invoke('document:confirm-replace', { id, allowed })
   },

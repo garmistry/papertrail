@@ -2,6 +2,8 @@
 
 Papertrail is a macOS Markdown editor with a live preview, clickable document outline, highlighted code blocks, light/dark themes, recent files, full-text search, in-app updates, virtual file categories that never move documents, and support for Markdown, text, and JSON files.
 
+Use **Prep for agent** after opening or saving a Markdown file to copy its full absolute path to the clipboard.
+
 ## Code structure
 
 See [the architecture guide](docs/architecture.md) for process boundaries, module responsibilities, and extension points.

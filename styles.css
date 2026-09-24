@@ -98,6 +98,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 }
 .button:hover, .icon-button:hover { transform: translateY(-1px); }
 .button:active, .icon-button:active { transform: translateY(0); }
+.button:disabled, .icon-button:disabled { cursor: not-allowed; opacity: 0.45; transform: none; }
 .button.ghost, .icon-button { background: var(--surface-solid); box-shadow: none; color: var(--text); border-color: var(--line); }
 .button.ghost:hover, .icon-button:hover { border-color: var(--line-strong); background: var(--surface-muted); }
 .icon-button { width: 32px; padding: 5px; font-size: 15px; line-height: 1; }

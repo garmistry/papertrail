@@ -1,7 +1,7 @@
 'use strict';
 
 // Main-process coordinator: native windows, trusted IPC, and app lifecycle.
-const { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell } = require('electron');
+const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -265,6 +265,11 @@ handle('document:new', () => {
 });
 handle('document:save', (_event, text) => documents.currentPath ? saveDocument(documents.currentPath, text) : chooseAndSave(text));
 handle('document:save-as', (_event, text) => chooseAndSave(text));
+handle('document:copy-path', () => {
+  if (!documents.currentPath) return null;
+  clipboard.writeText(documents.currentPath);
+  return documents.currentPath;
+});
 ipcMain.on('document:dirty', (event, dirty) => {
   if (!isTrustedSender(event)) return;
   isDirty = Boolean(dirty);

@@ -24,6 +24,7 @@ const historyLabel = document.querySelector('#history-label');
 const archiveCount = document.querySelector('#archive-count');
 const globalOpenCount = document.querySelector('#global-open-count');
 const previewEditButton = document.querySelector('#preview-edit-button');
+const prepAgentButton = document.querySelector('#prep-agent-button');
 const markdownHelper = document.querySelector('#markdown-helper');
 const viewButtons = [...document.querySelectorAll('[data-view]')];
 const settingsDialog = document.querySelector('#settings-dialog');
@@ -122,6 +123,7 @@ function updateChrome() {
   const name = state.path ? state.path.split('/').pop() : 'New note';
   documentName.textContent = `${name}${state.dirty ? ' •' : ''}`;
   document.title = state.dirty ? `• ${name} — Papertrail` : `${name} — Papertrail`;
+  prepAgentButton.disabled = !state.path || state.type !== 'markdown';
   const words = wordCount(editor.value);
   stats.textContent = `${words} ${words === 1 ? 'word' : 'words'}`;
 }
@@ -412,6 +414,16 @@ async function saveDocument(saveAs = false) {
   }
 }
 
+/** Copies the current Markdown file's absolute path for use in an agent prompt. */
+async function prepForAgent() {
+  try {
+    const filePath = await window.papertrail.documents.copyPath();
+    setStatus(filePath ? 'Copied full Markdown path for your agent.' : 'Save this Markdown file before copying its path.', filePath ? '' : 'error');
+  } catch (error) {
+    setStatus(error.message || 'Could not copy the file path.', 'error');
+  }
+}
+
 /** Starts a blank Markdown document after confirming any unsaved source is discarded. */
 async function newDocument() {
   if (state.dirty && !window.confirm('Discard unsaved changes?')) return;
@@ -456,6 +468,7 @@ async function saveCategories() {
 document.querySelector('#new-button').addEventListener('click', newDocument);
 document.querySelector('#open-button').addEventListener('click', openDocument);
 document.querySelector('#save-button').addEventListener('click', () => saveDocument());
+prepAgentButton.addEventListener('click', prepForAgent);
 themeButton.addEventListener('click', () => setTheme(state.theme === 'dark' ? 'light' : 'dark'));
 settingsButton.addEventListener('click', openSettings);
 settingsTheme.addEventListener('change', () => setTheme(settingsTheme.value));
