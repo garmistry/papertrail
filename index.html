@@ -42,6 +42,7 @@
             </div>
           </div>
         </details>
+        <button class="icon-button" id="diagnostics-button" type="button" aria-label="Open diagnostics" title="Diagnostics">!</button>
         <button class="icon-button" id="settings-button" type="button" aria-label="Open settings" title="Settings">⚙</button>
         <button class="icon-button" id="theme-button" type="button" aria-label="Switch color theme" title="Switch color theme">◐</button>
       </div>
@@ -101,6 +102,16 @@
           </div>
         </div>
         <div class="diagram-stage" id="diagram-stage"><img id="diagram-image" alt="Expanded sequence diagram" /></div>
+      </div>
+    </dialog>
+    <dialog class="diagnostics-dialog" id="diagnostics-dialog" aria-labelledby="diagnostics-title">
+      <div class="diagnostics-panel">
+        <div class="diagnostics-heading">
+          <div><span class="eyebrow">Support</span><h2 id="diagnostics-title">Diagnostics</h2></div>
+          <div class="diagnostics-actions"><button class="button ghost" id="diagnostics-copy" type="button">Copy logs</button><button class="icon-button" id="diagnostics-close" type="button" aria-label="Close diagnostics">×</button></div>
+        </div>
+        <p class="diagnostics-meta" id="diagnostics-meta"></p>
+        <pre class="diagnostics-log" id="diagnostics-log" tabindex="0"></pre>
       </div>
     </dialog>
     <dialog class="settings-dialog" id="settings-dialog" aria-labelledby="settings-title">

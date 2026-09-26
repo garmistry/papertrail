@@ -262,6 +262,15 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .settings-stat strong { color: var(--accent-strong); font-size: 24px; line-height: 1; letter-spacing: -0.05em; }
 .settings-stat small { grid-column: 1 / -1; color: var(--subtle); font-size: 10px; line-height: 1.45; }
 
+.diagnostics-dialog { width: min(820px, calc(100vw - 32px)); height: min(650px, calc(100vh - 48px)); overflow: hidden; border: 1px solid var(--line-strong); border-radius: 16px; background: var(--surface-solid); box-shadow: 0 24px 64px rgb(20 24 32 / 24%); color: var(--text); padding: 0; }
+.diagnostics-dialog::backdrop { background: rgb(20 24 32 / 30%); backdrop-filter: blur(4px); }
+.diagnostics-panel { height: 100%; display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 12px; padding: 18px; }
+.diagnostics-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.diagnostics-heading h2 { margin: 2px 0 0; font-size: 21px; letter-spacing: -0.04em; }
+.diagnostics-actions { display: flex; gap: 7px; }
+.diagnostics-meta { margin: 0; color: var(--muted); font: 10px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; white-space: pre-line; }
+.diagnostics-log { overflow: auto; margin: 0; border: 1px solid var(--line); border-radius: 10px; background: #111219; color: #e7e9ed; padding: 14px; font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; white-space: pre-wrap; user-select: text; }
+
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 10px; background: var(--line-strong); background-clip: padding-box; }
 ::-webkit-scrollbar-thumb:hover { background-color: var(--subtle); }

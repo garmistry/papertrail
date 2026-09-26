@@ -16,10 +16,16 @@ export function updateNoticeView(status = {}) {
     action: 'Restart & Install',
     progress: null
   };
+  if (status.state === 'installing') return {
+    title: 'Installing update',
+    message: 'Papertrail will restart when the installer is ready.',
+    action: null,
+    progress: null
+  };
   if (status.state === 'error') return {
-    title: 'Update download failed',
-    message: status.message || 'Try downloading the update again.',
-    action: 'Retry',
+    title: status.phase === 'install' ? 'Update installation failed' : 'Update failed',
+    message: status.message || 'Open diagnostics for the service logs.',
+    action: status.retryable ? 'Retry' : 'View logs',
     progress: null
   };
   return null;

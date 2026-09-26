@@ -5,6 +5,7 @@ const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, shell
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const { Diagnostics } = require('./lib/diagnostics');
 const { DocumentStore } = require('./lib/document-store');
 const { DOCUMENT_FILTERS, documentPathFrom } = require('./lib/document-types');
 
@@ -15,11 +16,30 @@ let pendingOpenPath = null;
 let isDirty = false;
 let nextConfirmationId = 0;
 let updaterStarted = false;
-let updateDownloadStarted = false;
+let updatePhase = 'idle';
+let updateInstallTimer;
+let updateInstallWasDirty = false;
 let updateStatus = { state: 'idle' };
+let diagnostics;
 const replacementConfirmations = new Map();
 const appPageUrl = pathToFileURL(path.join(__dirname, 'index.html')).toString();
 const UPDATE_CHECK_INTERVAL = 4 * 60 * 60 * 1000;
+const UPDATE_INSTALL_TIMEOUT = 30000;
+
+/** Records a service message to the console and persistent in-app diagnostics. */
+function serviceLog(level, service, ...values) {
+  (console[level] || console.log)(`[${service}]`, ...values);
+  const entry = diagnostics?.write(level, service, ...values);
+  if (level === 'error' && mainWindow && rendererReady && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('diagnostics:open');
+  }
+  return entry;
+}
+
+/** Returns a readable message without dropping non-Error rejection values. */
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error || 'Unknown error');
+}
 
 /** Stores updater state and forwards it to the in-app notification when available. */
 function sendUpdateStatus(status) {
@@ -29,31 +49,55 @@ function sendUpdateStatus(status) {
 
 /** Checks the configured GitHub release feed without interrupting offline use. */
 function checkForUpdates() {
-  if (!app.isPackaged || ['downloading', 'downloaded'].includes(updateStatus.state)) return;
-  autoUpdater.checkForUpdates().catch((error) => console.error('Update check failed:', error.message));
+  if (!app.isPackaged || updatePhase !== 'idle' || ['downloading', 'downloaded', 'installing'].includes(updateStatus.state)) return;
+  updatePhase = 'check';
+  serviceLog('info', 'updater', 'Checking for updates.');
+  autoUpdater.checkForUpdates().catch((error) => {
+    if (updatePhase === 'check') reportUpdateError(error, 'check');
+  });
+}
+
+/** Surfaces updater failures regardless of whether they happen during check, download, or install. */
+function reportUpdateError(error, phase = updatePhase) {
+  clearTimeout(updateInstallTimer);
+  if (phase === 'install') isDirty = updateInstallWasDirty;
+  updateInstallWasDirty = false;
+  updatePhase = 'idle';
+  const message = errorMessage(error);
+  serviceLog('error', 'updater', `${phase} failed:`, error instanceof Error ? error.stack || error.message : message);
+  sendUpdateStatus({ state: 'error', phase, message, retryable: phase === 'download' });
 }
 
 /** Connects the packaged app to its GitHub release feed once per process. */
 function startUpdater() {
   if (!app.isPackaged || updaterStarted) return;
   updaterStarted = true;
+  autoUpdater.logger = {
+    debug: (...values) => serviceLog('debug', 'updater', ...values),
+    info: (...values) => serviceLog('info', 'updater', ...values),
+    warn: (...values) => serviceLog('warn', 'updater', ...values),
+    error: (...values) => serviceLog('error', 'updater', ...values)
+  };
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.allowPrerelease = false;
-  autoUpdater.on('update-available', ({ version }) => sendUpdateStatus({ state: 'available', version }));
-  autoUpdater.on('update-not-available', () => sendUpdateStatus({ state: 'idle' }));
+  autoUpdater.on('update-available', ({ version }) => {
+    updatePhase = 'idle';
+    serviceLog('info', 'updater', `Update ${version} is available.`);
+    sendUpdateStatus({ state: 'available', version });
+  });
+  autoUpdater.on('update-not-available', () => {
+    updatePhase = 'idle';
+    serviceLog('info', 'updater', 'No update is available.');
+    sendUpdateStatus({ state: 'idle' });
+  });
   autoUpdater.on('download-progress', ({ percent }) => sendUpdateStatus({ state: 'downloading', percent: Math.round(percent) }));
   autoUpdater.on('update-downloaded', ({ version }) => {
-    updateDownloadStarted = false;
+    updatePhase = 'ready';
+    serviceLog('info', 'updater', `Update ${version} downloaded and ready to install.`);
     sendUpdateStatus({ state: 'downloaded', version });
   });
-  autoUpdater.on('error', (error) => {
-    console.error('Updater failed:', error.message);
-    if (updateDownloadStarted) {
-      updateDownloadStarted = false;
-      sendUpdateStatus({ state: 'error', message: error.message });
-    }
-  });
+  autoUpdater.on('error', (error) => reportUpdateError(error));
   setTimeout(checkForUpdates, 1500);
   setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL).unref();
 }
@@ -202,6 +246,7 @@ function createMenu() {
         { label: 'Preview Only', accelerator: 'CommandOrControl+3', click: () => sendCommand('view-preview') },
         { type: 'separator' },
         { label: 'Settings…', accelerator: 'CommandOrControl+,', click: () => sendCommand('settings') },
+        { label: 'Diagnostics…', click: () => sendCommand('diagnostics') },
         { type: 'separator' },
         { role: 'togglefullscreen' }
       ]
@@ -255,6 +300,7 @@ function createWindow() {
   });
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-navigate', (event) => event.preventDefault());
+  mainWindow.webContents.on('render-process-gone', (_event, details) => serviceLog('error', 'renderer', `Renderer exited: ${details.reason} (${details.exitCode}).`));
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
 }
 
@@ -293,23 +339,52 @@ handle('document:confirm-replace', (_event, response) => {
 handle('theme:set', (_event, theme) => {
   nativeTheme.themeSource = theme === 'dark' || theme === 'light' ? theme : 'system';
 });
+handle('diagnostics:list', () => ({
+  entries: diagnostics?.list() || [],
+  path: diagnostics?.filePath || '',
+  version: app.getVersion(),
+  platform: process.platform,
+  arch: process.arch
+}));
+handle('diagnostics:copy', () => {
+  const entries = diagnostics?.list() || [];
+  clipboard.writeText(entries.join('\n'));
+  return entries.length;
+});
+ipcMain.on('diagnostics:report', (event, message) => {
+  if (!isTrustedSender(event) || typeof message !== 'string') return;
+  serviceLog('error', 'renderer', message.slice(0, 20000));
+});
 handle('update:download', async () => {
-  if (!app.isPackaged || !['available', 'error'].includes(updateStatus.state)) return false;
-  updateDownloadStarted = true;
+  if (!app.isPackaged || (updateStatus.state !== 'available' && !(updateStatus.state === 'error' && updateStatus.retryable))) return false;
+  updatePhase = 'download';
+  serviceLog('info', 'updater', 'Starting update download.');
   sendUpdateStatus({ state: 'downloading', percent: 0 });
   try {
     await autoUpdater.downloadUpdate();
     return true;
   } catch (error) {
-    updateDownloadStarted = false;
-    sendUpdateStatus({ state: 'error', message: error.message });
+    if (updatePhase === 'download') reportUpdateError(error, 'download');
     return false;
   }
 });
 handle('update:install', async () => {
   if (updateStatus.state !== 'downloaded' || !await confirmDiscardChanges('installing the update')) return false;
+  updateInstallWasDirty = isDirty;
   isDirty = false;
-  setImmediate(() => autoUpdater.quitAndInstall(false, true));
+  updatePhase = 'install';
+  serviceLog('info', 'updater', `Installing update ${updateStatus.version || ''}.`);
+  sendUpdateStatus({ state: 'installing', version: updateStatus.version });
+  setImmediate(() => {
+    updateInstallTimer = setTimeout(() => {
+      if (updatePhase === 'install') reportUpdateError(new Error('Installation did not start within 30 seconds. On macOS, verify that both builds use the same Developer ID certificate.'), 'install');
+    }, UPDATE_INSTALL_TIMEOUT);
+    try {
+      autoUpdater.quitAndInstall();
+    } catch (error) {
+      reportUpdateError(error, 'install');
+    }
+  });
   return true;
 });
 handle('link:open', async (_event, href) => {
@@ -341,6 +416,8 @@ if (!hasSingleInstanceLock) {
 
   app.whenReady().then(() => {
     app.setName('Papertrail');
+    diagnostics = new Diagnostics(path.join(app.getPath('userData'), 'logs', 'papertrail.log'));
+    serviceLog('info', 'app', `Papertrail ${app.getVersion()} started on ${process.platform} ${process.arch}.`);
     documents = new DocumentStore(
       path.join(app.getPath('userData'), 'history.json'),
       (filePath) => app.addRecentDocument(filePath)
@@ -359,3 +436,6 @@ if (!hasSingleInstanceLock) {
     if (process.platform !== 'darwin') app.quit();
   });
 }
+
+process.on('uncaughtExceptionMonitor', (error) => serviceLog('error', 'main', error));
+process.on('unhandledRejection', (reason) => serviceLog('error', 'main', reason));

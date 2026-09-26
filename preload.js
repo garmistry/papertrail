@@ -32,6 +32,12 @@ contextBridge.exposeInMainWorld('papertrail', {
     install: () => ipcRenderer.invoke('update:install'),
     onStatus: (callback) => on('update:status', callback)
   },
+  diagnostics: {
+    list: () => ipcRenderer.invoke('diagnostics:list'),
+    copy: () => ipcRenderer.invoke('diagnostics:copy'),
+    report: (message) => ipcRenderer.send('diagnostics:report', message),
+    onOpen: (callback) => on('diagnostics:open', callback)
+  },
   setTheme: (theme) => ipcRenderer.invoke('theme:set', theme),
   openExternal: (href) => ipcRenderer.invoke('link:open', href),
   onCommand: (callback) => on('app:command', callback),

@@ -48,6 +48,12 @@ const diagramZoomOut = document.querySelector('#diagram-zoom-out');
 const diagramZoomReset = document.querySelector('#diagram-zoom-reset');
 const diagramZoomIn = document.querySelector('#diagram-zoom-in');
 const diagramClose = document.querySelector('#diagram-close');
+const diagnosticsDialog = document.querySelector('#diagnostics-dialog');
+const diagnosticsButton = document.querySelector('#diagnostics-button');
+const diagnosticsClose = document.querySelector('#diagnostics-close');
+const diagnosticsCopy = document.querySelector('#diagnostics-copy');
+const diagnosticsMeta = document.querySelector('#diagnostics-meta');
+const diagnosticsLog = document.querySelector('#diagnostics-log');
 
 const TYPE_LABELS = { markdown: 'Markdown', text: 'Text', json: 'JSON' };
 
@@ -96,6 +102,19 @@ function showUpdateStatus(status) {
   updateAction.hidden = !view.action;
   updateAction.disabled = false;
   updateAction.textContent = view.action || '';
+}
+
+/** Loads the persistent service log and opens the diagnostics dialog. */
+async function openDiagnostics() {
+  try {
+    const report = await window.papertrail.diagnostics.list();
+    diagnosticsMeta.textContent = `Papertrail ${report.version} · ${report.platform} ${report.arch}\n${report.path}`;
+    diagnosticsLog.textContent = report.entries.length ? report.entries.join('\n') : 'No service logs recorded yet.';
+    if (!diagnosticsDialog.open) diagnosticsDialog.showModal();
+    diagnosticsLog.scrollTop = diagnosticsLog.scrollHeight;
+  } catch (error) {
+    setStatus(error.message || 'Could not load diagnostics.', 'error');
+  }
 }
 
 /** Shows a brief status message in the app footer. */
@@ -484,12 +503,19 @@ updateAction.addEventListener('click', async () => {
   updateAction.disabled = true;
   try {
     if (state.update.state === 'downloaded') await window.papertrail.updates.install();
+    else if (state.update.state === 'error' && !state.update.retryable) await openDiagnostics();
     else await window.papertrail.updates.download();
   } finally {
     if (!updateAction.hidden) updateAction.disabled = false;
   }
 });
 updateDismiss.addEventListener('click', () => { updateNotice.hidden = true; });
+diagnosticsButton.addEventListener('click', openDiagnostics);
+diagnosticsClose.addEventListener('click', () => diagnosticsDialog.close());
+diagnosticsCopy.addEventListener('click', async () => {
+  const count = await window.papertrail.diagnostics.copy();
+  setStatus(count ? `Copied ${count} diagnostic log ${count === 1 ? 'entry' : 'entries'}.` : 'No diagnostic logs to copy.');
+});
 diagramImage.addEventListener('load', () => setDiagramZoom(state.diagramZoom));
 diagramZoomOut.addEventListener('click', () => setDiagramZoom(stepDiagramZoom(state.diagramZoom, -1)));
 diagramZoomReset.addEventListener('click', () => setDiagramZoom(1));
@@ -542,6 +568,7 @@ window.papertrail.onCommand((command) => {
   if (command === 'view-split') setView('split');
   if (command === 'view-preview') setView('preview');
   if (command === 'settings') openSettings();
+  if (command === 'diagnostics') openDiagnostics();
 });
 window.papertrail.onOpenedDocument((document) => {
   acceptDocument(document);
@@ -552,6 +579,9 @@ window.papertrail.onConfirmReplace(({ id, action }) => {
   window.papertrail.documents.confirmReplace(id, allowed);
 });
 window.papertrail.updates.onStatus(showUpdateStatus);
+window.papertrail.diagnostics.onOpen(openDiagnostics);
+window.addEventListener('error', (event) => window.papertrail.diagnostics.report(event.error?.stack || event.message));
+window.addEventListener('unhandledrejection', (event) => window.papertrail.diagnostics.report(event.reason?.stack || String(event.reason)));
 
 setTheme(state.theme);
 setView(state.view);

@@ -9,5 +9,7 @@ test('update notices expose only actions valid for the current updater state', (
     title: 'Downloading update', message: '100% complete', action: null, progress: 100
   });
   assert.equal(updateNoticeView({ state: 'downloaded', version: '1.2.0' }).action, 'Restart & Install');
-  assert.equal(updateNoticeView({ state: 'error' }).action, 'Retry');
+  assert.equal(updateNoticeView({ state: 'installing' }).action, null);
+  assert.equal(updateNoticeView({ state: 'error', phase: 'install' }).action, 'View logs');
+  assert.equal(updateNoticeView({ state: 'error', phase: 'download', retryable: true }).action, 'Retry');
 });
